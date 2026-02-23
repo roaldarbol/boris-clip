@@ -2,9 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches-ignore:
+      - main  # main is covered by the publish workflow on tag push
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   test:

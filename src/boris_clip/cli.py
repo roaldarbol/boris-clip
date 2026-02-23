@@ -175,6 +175,22 @@ def _match_observations(
     "--force", is_flag=True, default=False,
     help="Treat media-file mismatch and out-of-bounds errors as warnings rather than errors.",
 )
+@click.option(
+    "--behaviour", "-b", "behaviours",
+    multiple=True, metavar="NAME",
+    help=(
+        "Only extract clips for this behaviour. "
+        "Can be specified multiple times: -b REM -b walking"
+    ),
+)
+@click.option(
+    "--max-duration", type=float, default=None, metavar="SECONDS",
+    help="Truncate clips longer than this many seconds (from the end, after padding).",
+)
+@click.option(
+    "--max-clips", type=int, default=None, metavar="N",
+    help="Maximum number of clips to extract per (behaviour, subject) group. Earlier bouts take priority.",
+)
 @click.version_option()
 def main(
     boris_file: str,
@@ -188,6 +204,9 @@ def main(
     point_padding_post: float | None,
     fast: bool,
     force: bool,
+    behaviours: tuple[str, ...],
+    max_duration: float | None,
+    max_clips: int | None,
 ) -> None:
     """Extract video clips for each behavioural bout in a BORIS annotation file.
 
@@ -264,9 +283,25 @@ def main(
 
         validate(obs, video_info, force=force)
 
-        n_state = sum(1 for b in obs.bouts if not b.is_point)
-        n_point = sum(1 for b in obs.bouts if b.is_point)
-        _item("Bouts", f"{len(obs.bouts)}  ({n_state} state, {n_point} point)")
+        bouts = obs.bouts
+        if behaviours:
+            bouts = [b for b in bouts if b.behaviour in behaviours]
+            if not bouts:
+                _warn_pretty(
+                    f"No bouts matched the requested behaviour(s): "
+                    f"{', '.join(repr(b) for b in behaviours)} — skipping."
+                )
+                continue
+
+        n_state = sum(1 for b in bouts if not b.is_point)
+        n_point = sum(1 for b in bouts if b.is_point)
+        _item("Bouts", f"{len(bouts)}  ({n_state} state, {n_point} point)")
+        if behaviours:
+            _item("Behaviour filter", ", ".join(behaviours))
+        if max_duration is not None:
+            _item("Max duration", f"{max_duration:.1f}s")
+        if max_clips is not None:
+            _item("Max clips", f"{max_clips} per (behaviour, subject)")
         if n_state > 0:
             _item("State padding", f"pre {pre:.1f}s  /  post {post:.1f}s")
         if n_point > 0:
@@ -276,13 +311,15 @@ def main(
 
         click.echo("")
         created = extract_all_clips(
-            bouts=obs.bouts,
+            bouts=bouts,
             video=video_info,
             output_dir=Path(output_dir),
             padding_pre=pre,
             padding_post=post,
             point_padding_pre=pt_pre,
             point_padding_post=pt_post,
+            max_duration=max_duration,
+            max_clips=max_clips,
             fast=fast,
             progress_callback=_progress,
         )

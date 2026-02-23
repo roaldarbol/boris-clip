@@ -122,6 +122,28 @@ def extract_clip(
         )
 
 
+def _apply_max_clips(
+    bouts: list[Bout],
+    max_clips: int | None,
+) -> list[Bout]:
+    """Return at most max_clips bouts per (behaviour, subject) group.
+
+    Bouts are assumed to be in chronological order; the first N per group
+    are kept.
+    """
+    if max_clips is None:
+        return bouts
+    counts: dict[tuple[str, str], int] = {}
+    kept: list[Bout] = []
+    for bout in bouts:
+        key = (bout.behaviour, bout.subject)
+        n = counts.get(key, 0)
+        if n < max_clips:
+            kept.append(bout)
+            counts[key] = n + 1
+    return kept
+
+
 def extract_all_clips(
     bouts: list[Bout],
     video: VideoInfo,
@@ -130,6 +152,8 @@ def extract_all_clips(
     padding_post: float = 0.0,
     point_padding_pre: float = 5.0,
     point_padding_post: float = 5.0,
+    max_duration: float | None = None,
+    max_clips: int | None = None,
     fast: bool = False,
     progress_callback=None,
 ) -> list[Path]:
@@ -151,6 +175,12 @@ def extract_all_clips(
         Seconds to add before each point event.
     point_padding_post:
         Seconds to add after each point event.
+    max_duration:
+        If set, clips longer than this many seconds are truncated from the end.
+        Applied after padding.
+    max_clips:
+        If set, at most this many clips are extracted per (behaviour, subject)
+        group. Earlier bouts take priority.
     fast:
         Use stream-copy instead of re-encoding.
     progress_callback:
@@ -163,12 +193,23 @@ def extract_all_clips(
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    bouts = _apply_max_clips(bouts, max_clips)
     created: list[Path] = []
 
     for i, bout in enumerate(bouts):
         pre = point_padding_pre if bout.is_point else padding_pre
         post = point_padding_post if bout.is_point else padding_post
         padded = bout.with_padding(pre=pre, post=post, video_duration=video.duration)
+
+        # Truncate from the end if the padded clip exceeds max_duration
+        if max_duration is not None and padded.duration > max_duration:
+            padded = Bout(
+                subject=padded.subject,
+                behaviour=padded.behaviour,
+                start=padded.start,
+                stop=padded.start + max_duration,
+                is_point=padded.is_point,
+            )
 
         if padded.duration <= 0:
             warn(

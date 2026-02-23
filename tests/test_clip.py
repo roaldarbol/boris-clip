@@ -137,3 +137,58 @@ class TestExtractAllClips:
         )
         assert len(created) == 0
         mock_extract.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _apply_max_clips and max_duration
+# ---------------------------------------------------------------------------
+
+# Tests:
+# - max_clips limits per (behaviour, subject) group, keeping earliest bouts
+# - max_clips=None keeps all bouts
+# - max_clips=1 keeps only the first bout per group
+# - max_duration truncates long clips from the end after padding
+# - max_duration=None does not truncate
+
+class TestMaxClips:
+    def _bouts(self):
+        return [
+            Bout("A", "REM", 0.0, 5.0),
+            Bout("A", "REM", 10.0, 15.0),
+            Bout("A", "REM", 20.0, 25.0),
+            Bout("A", "walking", 5.0, 8.0),
+            Bout("B", "REM", 1.0, 4.0),
+        ]
+
+    def test_limits_per_group(self):
+        from boris_clip.clip import _apply_max_clips
+        kept = _apply_max_clips(self._bouts(), max_clips=2)
+        rem_a = [b for b in kept if b.behaviour == "REM" and b.subject == "A"]
+        assert len(rem_a) == 2
+        assert rem_a[0].start == pytest.approx(0.0)
+        assert rem_a[1].start == pytest.approx(10.0)
+
+    def test_none_keeps_all(self):
+        from boris_clip.clip import _apply_max_clips
+        assert len(_apply_max_clips(self._bouts(), None)) == 5
+
+    def test_max_clips_one(self):
+        from boris_clip.clip import _apply_max_clips
+        kept = _apply_max_clips(self._bouts(), max_clips=1)
+        rem_a = [b for b in kept if b.behaviour == "REM" and b.subject == "A"]
+        assert len(rem_a) == 1
+        assert rem_a[0].start == pytest.approx(0.0)
+
+    @patch("boris_clip.clip.extract_clip")
+    def test_max_duration_truncates(self, mock_extract, tmp_path, video):
+        bouts = [Bout("A", "REM", 0.0, 30.0)]
+        extract_all_clips(bouts, video, tmp_path, max_duration=10.0)
+        call_bout = mock_extract.call_args.kwargs["bout"]
+        assert call_bout.duration == pytest.approx(10.0)
+
+    @patch("boris_clip.clip.extract_clip")
+    def test_max_duration_none_no_truncation(self, mock_extract, tmp_path, video):
+        bouts = [Bout("A", "REM", 0.0, 30.0)]
+        extract_all_clips(bouts, video, tmp_path, max_duration=None)
+        call_bout = mock_extract.call_args.kwargs["bout"]
+        assert call_bout.duration == pytest.approx(30.0)

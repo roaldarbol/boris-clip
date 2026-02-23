@@ -4,3 +4,4 @@ __pycache__/
 .venv
 .pixi
 .pytest_cache
+site/

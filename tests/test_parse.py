@@ -65,7 +65,7 @@ def _aggregated_df(rows: list[dict]) -> pd.DataFrame:
 
 def _boris_project(observations: dict, ethogram: dict | None = None) -> dict:
     return {
-        "ethogram": ethogram or {},
+        "behaviors_conf": ethogram or {},
         "observations": observations,
     }
 
@@ -173,7 +173,8 @@ class TestBorisProject:
 
     def test_state_event_pairing(self, tmp_path):
         project = _boris_project(
-            ethogram={"0": {"name": "walking", "type": "State event"}},
+            # Use behaviors_conf with code, matching the real BORIS format
+            ethogram={"0": {"code": "walking", "type": "State event"}},
             observations={
                 "obs1": {
                     "events": [
@@ -184,9 +185,10 @@ class TestBorisProject:
                 }
             },
         )
-        p = self._write_project(tmp_path, project)
-        from boris_clip.parse import _parse_boris_project
-        result = _parse_boris_project(tmp_path / "test.boris")
+        self._write_project(tmp_path, project)
+        results = _parse_boris_project(tmp_path / "test.boris")
+        assert len(results) == 1
+        result = results[0]
         assert len(result.bouts) == 1
         assert result.bouts[0].start == pytest.approx(1.0)
         assert result.bouts[0].stop == pytest.approx(4.0)
@@ -194,7 +196,7 @@ class TestBorisProject:
 
     def test_point_event_from_ethogram(self, tmp_path):
         project = _boris_project(
-            ethogram={"0": {"name": "scratch", "type": "Point event"}},
+            ethogram={"0": {"code": "scratch", "type": "Point event"}},
             observations={
                 "obs1": {
                     "events": [[2.0, "ind1", "scratch", "", ""]],
@@ -202,10 +204,10 @@ class TestBorisProject:
                 }
             },
         )
-        p = self._write_project(tmp_path, project)
-        result = _parse_boris_project(tmp_path / "test.boris")
-        assert len(result.bouts) == 1
-        assert result.bouts[0].is_point
+        self._write_project(tmp_path, project)
+        results = _parse_boris_project(tmp_path / "test.boris")
+        assert len(results) == 1
+        assert results[0].bouts[0].is_point
 
     def test_media_filename_from_file_key(self, tmp_path):
         project = _boris_project(
@@ -216,9 +218,10 @@ class TestBorisProject:
                 }
             }
         )
-        p = self._write_project(tmp_path, project)
-        result = _parse_boris_project(tmp_path / "test.boris")
-        assert result.media_filename == "myvideo.mp4"
+        self._write_project(tmp_path, project)
+        results = _parse_boris_project(tmp_path / "test.boris")
+        assert len(results) == 1
+        assert results[0].media_filename == "myvideo.mp4"
 
 
 # ---------------------------------------------------------------------------

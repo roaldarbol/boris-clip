@@ -1,0 +1,53 @@
+site_name: boris-clip
+site_description: Extract video clips from BORIS behavioural annotation files
+site_url: https://roaldarbol.github.io/boris-clip
+repo_url: https://github.com/roaldarbol/boris-clip
+repo_name: roaldarbol/boris-clip
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.top
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - Reference:
+    - CLI: reference.md
+    - API: api.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true

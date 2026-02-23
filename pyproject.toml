@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "boris-clip"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Extract video clips from BORIS behavioural annotation files"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
-authors = [{ name = "Mikkel Roald-Arbøl", email = "you@example.com" }]
+authors = [{ name = "Mikkel Roald-Arbøl", email = "boris-clip.l1svp@passmail.com" }]
 keywords = ["boris", "ethology", "behaviour", "video", "annotation", "ffmpeg"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -28,15 +28,21 @@ dependencies = [
     "pandas>=1.5",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov"]
+
 [project.scripts]
 boris-clip = "boris_clip.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yourname/boris-clip"
-"Bug Tracker" = "https://github.com/yourname/boris-clip/issues"
+Homepage = "https://github.com/roaldarbol/boris-clip"
+"Bug Tracker" = "https://github.com/roaldarbol/boris-clip/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/boris_clip"]
+
+[tool.hatch.version]
+path = "src/boris_clip/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

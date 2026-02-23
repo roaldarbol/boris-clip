@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "boris-clip"
+version = "0.1.0"
+description = "Extract video clips from BORIS behavioural annotation files"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Mikkel Roald-Arbøl", email = "you@example.com" }]
+keywords = ["boris", "ethology", "behaviour", "video", "annotation", "ffmpeg"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Multimedia :: Video",
+]
+dependencies = [
+    "click>=8.0",
+    "pandas>=1.5",
+]
+
+[project.scripts]
+boris-clip = "boris_clip.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yourname/boris-clip"
+"Bug Tracker" = "https://github.com/yourname/boris-clip/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/boris_clip"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 100

@@ -17,35 +17,48 @@ def _sanitise_name(name: str) -> str:
     return name.strip("_")
 
 
+_NO_FOCAL_SUBJECT_LABELS = {"", "no focal subject", "no-focal-subject"}
+
+
 def build_output_path(
     bout: Bout,
     video: VideoInfo,
     output_dir: Path,
-    index: int,
-    total: int,
+    original_start: float,
+    original_stop: float,
 ) -> Path:
     """Construct the output file path for a clip.
 
-    Pattern: ``{video_stem}_{behaviour}_{subject}_{index:0Nd}.mp4``
+    Pattern: ``{video_stem}_{behaviour}_{subject}_{start}-{stop}.mp4``
+
+    The time interval reflects the original (unpadded) bout times so that
+    the filename is stable regardless of padding settings. When there is no
+    focal subject the component is ``no-focal-subject``.
 
     Parameters
     ----------
     bout:
-        The bout being extracted.
+        The bout being extracted (may be padded).
     video:
         Source video metadata.
     output_dir:
         Directory to write clips into.
-    index:
-        1-based index of this clip within its (behaviour, subject) group.
-    total:
-        Total number of clips in this group (used to determine zero-padding width).
+    original_start:
+        Unpadded start time, used in the filename.
+    original_stop:
+        Unpadded stop time, used in the filename.
     """
-    pad_width = max(2, len(str(total)))
     video_stem = Path(video.filename).stem
     behaviour = _sanitise_name(bout.behaviour)
-    subject = _sanitise_name(bout.subject)
-    filename = f"{video_stem}_{behaviour}_{subject}_{index:0{pad_width}d}.mp4"
+
+    if bout.subject.strip().lower() in _NO_FOCAL_SUBJECT_LABELS:
+        subject = "no-focal-subject"
+    else:
+        subject = _sanitise_name(bout.subject)
+
+    interval = f"{original_start:.3f}-{original_stop:.3f}"
+    parts = [video_stem, behaviour, subject, interval]
+    filename = "_".join(p for p in parts if p) + ".mp4"
     return output_dir / filename
 
 
@@ -150,19 +163,9 @@ def extract_all_clips(
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Count per (behaviour, subject) group to determine zero-padding width
-    group_counts: dict[tuple[str, str], int] = {}
-    for bout in bouts:
-        key = (bout.behaviour, bout.subject)
-        group_counts[key] = group_counts.get(key, 0) + 1
-
-    group_indices: dict[tuple[str, str], int] = {}
     created: list[Path] = []
 
     for i, bout in enumerate(bouts):
-        key = (bout.behaviour, bout.subject)
-        group_indices[key] = group_indices.get(key, 0) + 1
-
         pre = point_padding_pre if bout.is_point else padding_pre
         post = point_padding_post if bout.is_point else padding_post
         padded = bout.with_padding(pre=pre, post=post, video_duration=video.duration)
@@ -178,8 +181,8 @@ def extract_all_clips(
             bout=padded,
             video=video,
             output_dir=output_dir,
-            index=group_indices[key],
-            total=group_counts[key],
+            original_start=bout.start,
+            original_stop=bout.stop,
         )
 
         if progress_callback is not None:

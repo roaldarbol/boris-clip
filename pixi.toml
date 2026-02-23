@@ -21,4 +21,4 @@ dev = ["dev"]
 [feature.dev.tasks]
 install = "pip install -e . --no-deps"
 test = { cmd = "pytest tests/", depends-on = ["install"] }
-clip = { cmd = "python -m boris_clip.cli", depends-on = ["install"] }
+clip = { cmd = "boris-clip", depends-on = ["install"] }

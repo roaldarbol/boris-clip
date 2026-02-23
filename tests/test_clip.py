@@ -51,16 +51,24 @@ def point_bout():
 
 class TestBuildOutputPath:
     def test_filename_pattern(self, tmp_path, video, state_bout):
-        p = build_output_path(state_bout, video, tmp_path, index=1, total=3)
-        assert p.name == "recording_walking_ind1_01.mp4"
+        p = build_output_path(state_bout, video, tmp_path, original_start=10.0, original_stop=15.0)
+        assert p.name == "recording_walking_ind1_10.000-15.000.mp4"
 
-    def test_zero_padding_scales(self, tmp_path, video, state_bout):
-        p = build_output_path(state_bout, video, tmp_path, index=1, total=100)
-        assert p.name == "recording_walking_ind1_001.mp4"
+    def test_no_focal_subject(self, tmp_path, video):
+        bout = Bout(subject="No focal subject", behaviour="REM", start=1.5, stop=6.0)
+        p = build_output_path(bout, video, tmp_path, original_start=1.5, original_stop=6.0)
+        assert "no-focal-subject" in p.name
+        assert "__" not in p.name
+
+    def test_empty_subject(self, tmp_path, video):
+        bout = Bout(subject="", behaviour="REM", start=1.5, stop=6.0)
+        p = build_output_path(bout, video, tmp_path, original_start=1.5, original_stop=6.0)
+        assert "no-focal-subject" in p.name
+        assert "__" not in p.name
 
     def test_special_chars_sanitised(self, tmp_path, video):
         bout = Bout(subject="ind 1 (A)", behaviour="arm wave!", start=0.0, stop=5.0)
-        p = build_output_path(bout, video, tmp_path, index=1, total=1)
+        p = build_output_path(bout, video, tmp_path, original_start=0.0, original_stop=5.0)
         import re
         assert re.fullmatch(r"[\w\-_.]+", p.name), f"Unexpected characters in {p.name!r}"
 
@@ -109,14 +117,14 @@ class TestExtractAllClips:
         assert out.exists()
 
     @patch("boris_clip.clip.extract_clip")
-    def test_per_group_indexing(self, mock_extract, tmp_path, video):
+    def test_interval_in_filename(self, mock_extract, tmp_path, video):
         bouts = self._make_bouts()
         extract_all_clips(bouts, video, tmp_path)
         names = [call.kwargs["output_path"].name for call in mock_extract.call_args_list]
-        # Two "A/run" bouts should be _01 and _02
-        a_run = [n for n in names if "run_A" in n]
-        assert any("01" in n for n in a_run)
-        assert any("02" in n for n in a_run)
+        # Original bout times appear in filenames
+        assert any("0.000-5.000" in n for n in names)
+        assert any("10.000-15.000" in n for n in names)
+        assert any("20.000-25.000" in n for n in names)
 
     @patch("boris_clip.clip.extract_clip")
     def test_zero_duration_bout_skipped(self, mock_extract, tmp_path, video):

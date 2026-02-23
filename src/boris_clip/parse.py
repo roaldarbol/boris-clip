@@ -249,121 +249,110 @@ def _parse_aggregated_csv(df: pd.DataFrame, path: Path) -> ParsedAnnotations:
 # .boris project file parser
 # ---------------------------------------------------------------------------
 
-def _parse_boris_project(path: Path) -> ParsedAnnotations:
-    """Parse a BORIS .boris project file (JSON)."""
+def _parse_obs_events(
+    events: list,
+    ethogram: dict[str, str],
+    obs_id: str,
+) -> list[Bout]:
+    """Parse raw BORIS events for a single observation into Bouts."""
+    bouts: list[Bout] = []
+    open_states: dict[tuple[str, str], float] = {}
+
+    for event in sorted(events, key=lambda e: e[0]):
+        if len(event) < 3:
+            continue
+        t = float(event[0])
+        subject = str(event[1]).strip()
+        behaviour = str(event[2]).strip()
+        event_type = ethogram.get(behaviour, "State event")
+
+        if "point" in event_type.lower():
+            bouts.append(Bout(subject=subject, behaviour=behaviour, start=t, stop=t, is_point=True))
+        else:
+            key = (subject, behaviour)
+            if key in open_states:
+                bouts.append(
+                    Bout(subject=subject, behaviour=behaviour,
+                         start=open_states.pop(key), stop=t, is_point=False)
+                )
+            else:
+                open_states[key] = t
+
+    for (subject, behaviour), start in open_states.items():
+        warn(
+            f"[{obs_id}] State event ({subject!r}, {behaviour!r}) opened at "
+            f"t={start:.3f}s was never closed. Skipping."
+        )
+    return bouts
+
+
+def _extract_obs_media(obs: dict) -> tuple[str | None, str | None]:
+    """Return (media_filename, media_path) for a single observation."""
+    media_file = obs.get("file", obs.get("media_file_name", {}))
+    if isinstance(media_file, dict):
+        for player_files in media_file.values():
+            if isinstance(player_files, list) and player_files:
+                raw = player_files[0]
+                if raw:
+                    return Path(raw).name, raw
+            elif isinstance(player_files, str) and player_files:
+                return Path(player_files).name, player_files
+    elif isinstance(media_file, str) and media_file:
+        return Path(media_file).name, media_file
+    return None, None
+
+
+def _extract_obs_media_info(obs: dict) -> tuple[float | None, float | None]:
+    """Return (fps, duration) from a single observation's media_info."""
+    media_info = obs.get("media_info", {})
+    fps: float | None = None
+    duration: float | None = None
+    if not isinstance(media_info, dict):
+        return fps, duration
+    for v in media_info.get("fps", {}).values():
+        try:
+            fps = float(v); break
+        except (ValueError, TypeError):
+            pass
+    for v in media_info.get("length", media_info.get("duration", {})).values():
+        try:
+            duration = float(v); break
+        except (ValueError, TypeError):
+            pass
+    return fps, duration
+
+
+def _parse_boris_project(path: Path) -> list[ParsedAnnotations]:
+    """Parse a BORIS .boris project file into one ParsedAnnotations per observation."""
     with open(path, encoding="utf-8") as fh:
         project = json.load(fh)
 
-    ethogram: dict[str, str] = {}  # behaviour_name -> "State event" | "Point event"
-    for entry in project.get("ethogram", {}).values():
-        name = entry.get("name", "").strip()
+    ethogram: dict[str, str] = {}
+    for entry in project.get("behaviors_conf", project.get("ethogram", {})).values():
+        code = entry.get("code", entry.get("name", "")).strip()
         btype = entry.get("type", "").strip()
-        if name:
-            ethogram[name] = btype
+        if code:
+            ethogram[code] = btype
 
     observations = project.get("observations", {})
     if not observations:
         abort("No observations found in .boris project file.")
 
-    if len(observations) > 1:
-        warn(
-            f"Project file contains {len(observations)} observations. "
-            "All will be parsed and combined. Use --observation to filter (not yet implemented)."
-        )
-
-    bouts: list[Bout] = []
-    media_filename: str | None = None
-    fps: float | None = None
-    duration: float | None = None
-
+    results: list[ParsedAnnotations] = []
     for obs_id, obs in observations.items():
-        # Extract media info
-        media_info = obs.get("media_info", {})
-        media_file = obs.get("file", obs.get("media_file_name", {}))
-
-        if isinstance(media_file, dict):
-            # Keyed by player number {"1": ["/path/to/file.mp4"]}
-            for player_files in media_file.values():
-                if isinstance(player_files, list) and player_files:
-                    media_filename = Path(player_files[0]).name
-                    break
-                elif isinstance(player_files, str):
-                    media_filename = Path(player_files).name
-                    break
-        elif isinstance(media_file, str) and media_file:
-            media_filename = Path(media_file).name
-
-        # FPS and duration from media_info if present
-        if isinstance(media_info, dict):
-            for player_info in media_info.values():
-                if isinstance(player_info, dict):
-                    for file_info in player_info.values():
-                        if isinstance(file_info, dict):
-                            if fps is None and "fps" in file_info:
-                                try:
-                                    fps = float(file_info["fps"])
-                                except (ValueError, TypeError):
-                                    pass
-                            if duration is None and "duration" in file_info:
-                                try:
-                                    duration = float(file_info["duration"])
-                                except (ValueError, TypeError):
-                                    pass
-
-        # Parse events
-        # Events are: [time, subject, behavior, modifier, comment]
-        # State events are paired: 1st occurrence = START, 2nd = STOP, per (subject, behaviour)
-        events = obs.get("events", [])
-        open_states: dict[tuple[str, str], float] = {}
-
-        for event in sorted(events, key=lambda e: e[0]):
-            if len(event) < 3:
-                continue
-            t = float(event[0])
-            subject = str(event[1]).strip()
-            behaviour = str(event[2]).strip()
-
-            event_type = ethogram.get(behaviour, "State event")
-
-            if "point" in event_type.lower():
-                bouts.append(
-                    Bout(
-                        subject=subject,
-                        behaviour=behaviour,
-                        start=t,
-                        stop=t,
-                        is_point=True,
-                    )
-                )
-            else:
-                # State event: toggle open/close
-                key = (subject, behaviour)
-                if key in open_states:
-                    bouts.append(
-                        Bout(
-                            subject=subject,
-                            behaviour=behaviour,
-                            start=open_states.pop(key),
-                            stop=t,
-                            is_point=False,
-                        )
-                    )
-                else:
-                    open_states[key] = t
-
-        for (subject, behaviour), start in open_states.items():
-            warn(
-                f"[{obs_id}] State event ({subject!r}, {behaviour!r}) opened at "
-                f"t={start:.3f}s was never closed. Skipping."
-            )
-
-    return ParsedAnnotations(
-        bouts=bouts,
-        media_filename=media_filename,
-        fps=fps,
-        duration=duration,
-        source_format="boris_project",
-    )
+        media_filename, media_path = _extract_obs_media(obs)
+        fps, duration = _extract_obs_media_info(obs)
+        bouts = _parse_obs_events(obs.get("events", []), ethogram, obs_id)
+        results.append(ParsedAnnotations(
+            bouts=bouts,
+            obs_id=obs_id,
+            media_filename=media_filename,
+            media_path=media_path,
+            fps=fps,
+            duration=duration,
+            source_format="boris_project",
+        ))
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -389,7 +378,7 @@ def _read_csv_skip_header(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, skiprows=skip, encoding="utf-8-sig")
 
 
-def parse_boris_file(path: str) -> ParsedAnnotations:
+def parse_boris_file(path: str) -> list[ParsedAnnotations]:
     """Parse a BORIS annotation file in any supported format.
 
     Supported formats are detected automatically:
@@ -398,6 +387,9 @@ def parse_boris_file(path: str) -> ParsedAnnotations:
     - CSV tabular events export
     - CSV aggregated events export
 
+    Always returns a list. For ``.boris`` files each observation is a separate
+    entry; for CSV exports the list contains a single entry.
+
     Parameters
     ----------
     path:
@@ -405,8 +397,8 @@ def parse_boris_file(path: str) -> ParsedAnnotations:
 
     Returns
     -------
-    ParsedAnnotations
-        Parsed bouts and any available media metadata.
+    list[ParsedAnnotations]
+        Parsed annotations, one per observation.
     """
     p = Path(path)
     if not p.exists():
@@ -422,6 +414,6 @@ def parse_boris_file(path: str) -> ParsedAnnotations:
 
     fmt = _detect_csv_format(df)
     if fmt in ("tabular", "tabular_legacy"):
-        return _parse_tabular_csv(df, p)
+        return [_parse_tabular_csv(df, p)]
     else:
-        return _parse_aggregated_csv(df, p)
+        return [_parse_aggregated_csv(df, p)]

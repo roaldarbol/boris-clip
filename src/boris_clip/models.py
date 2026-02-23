@@ -52,7 +52,9 @@ class ParsedAnnotations:
     """Result of parsing a BORIS file."""
 
     bouts: list[Bout]
+    obs_id: str | None = None          # observation ID, populated for .boris project files
     media_filename: str | None = None  # best-effort from the file
+    media_path: str | None = None      # full path, only available from .boris project files
     fps: float | None = None
     duration: float | None = None
     source_format: str = "unknown"

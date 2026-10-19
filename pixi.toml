@@ -18,8 +18,14 @@ zensical = ">=0.0.23,<0.0.24"
 mkdocstrings = ">=1.0.3,<2"
 mkdocstrings-python = ">=2.0.2,<3"
 
+# Pin the oldest supported Python so CI tests both ends of requires-python
+# (the dev environment resolves to the newest).
+[feature.py310.dependencies]
+python = "3.10.*"
+
 [environments]
 dev = ["dev"]
+test-py310 = ["dev", "py310"]
 
 [feature.dev.tasks]
 install = "pip install -e . --no-deps"

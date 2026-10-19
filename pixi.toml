@@ -9,11 +9,14 @@ python = ">=3.10"
 ffmpeg = "*"
 pandas = ">=1.5"
 click = ">=8.0"
-pip = "*"
+
+[pypi-dependencies]
+boris-clip = { path = ".", editable = true }
 
 [feature.dev.dependencies]
 pytest = "*"
 pytest-cov = "*"
+python-build = ">=1.0"
 zensical = ">=0.0.23,<0.0.24"
 mkdocstrings = ">=1.0.3,<2"
 mkdocstrings-python = ">=2.0.2,<3"
@@ -28,6 +31,7 @@ dev = ["dev"]
 test-py310 = ["dev", "py310"]
 
 [feature.dev.tasks]
-install = "pip install -e . --no-deps"
-test = { cmd = "pytest tests/", depends-on = ["install"] }
-clip = { cmd = "boris-clip", depends-on = ["install"] }
+test = "pytest tests/"
+clip = "boris-clip"
+build = { cmd = "python -m build", description = "Build sdist + wheel into ./dist/" }
+docs-build = { cmd = "zensical build", description = "Build the static docs site into ./site/." }

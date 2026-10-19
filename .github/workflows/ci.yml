@@ -1,9 +1,11 @@
 name: CI
 
 on:
+  # Test main after every merge, and PRs; branch pushes are covered by their
+  # PR, so they don't run twice.
   push:
-    branches-ignore:
-      - main  # main is covered by the publish workflow on tag push
+    branches:
+      - main
   pull_request:
     branches:
       - main

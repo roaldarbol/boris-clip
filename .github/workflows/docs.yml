@@ -14,20 +14,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@v0.11.2
         with:
-          python-version: "3.12"
-
-      - name: Install docs dependencies
-        run: pip install zensical mkdocstrings[python] mkdocstrings-python
-
-      - name: Install package
-        run: pip install -e .
+          pixi-version: v0.72.0
+          environments: dev
+          locked: true
 
       - name: Build docs
-        run: zensical build
+        run: pixi run -e dev docs-build
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3

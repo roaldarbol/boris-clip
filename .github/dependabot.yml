@@ -1,0 +1,16 @@
+version: 2
+
+# pixi.lock is not handled by Dependabot; the Update pixi.lock workflow
+# (.github/workflows/update-lock.yml) refreshes it monthly instead.
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope

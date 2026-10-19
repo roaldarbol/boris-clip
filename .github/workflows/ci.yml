@@ -7,25 +7,33 @@ on:
   pull_request:
     branches:
       - main
+  # Lets the Update pixi.lock workflow run tests on its PR (PRs opened with
+  # GITHUB_TOKEN don't trigger CI on their own).
+  workflow_dispatch:
 
 jobs:
   test:
+    name: Test (${{ matrix.os }}, ${{ matrix.environment }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        # dev resolves to the newest Python; test-py310 pins the oldest
+        # supported one, so both ends of requires-python are covered.
+        environment: [dev, test-py310]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      # Install from pixi.lock, so the tests run against exactly the locked
+      # versions (and a lock refresh PR is actually exercised).
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@v0.11.2
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install package and dev dependencies
-        run: pip install -e ".[dev]"
+          pixi-version: v0.72.0
+          environments: ${{ matrix.environment }}
+          locked: true
 
       - name: Run tests
-        run: pytest tests/ -v --tb=short
+        run: pixi run -e ${{ matrix.environment }} test -v --tb=short

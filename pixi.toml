@@ -28,9 +28,20 @@ mkdocstrings-python = ">=2.0.2,<3"
 [feature.py310.dependencies]
 python = "3.10.*"
 
+# Security audit. The audit environment combines the other features so pip-audit
+# sees every locked package. See .github/workflows/audit.yml.
+[feature.audit.dependencies]
+pip-audit = ">=2.10"
+filelock = "*"  # pip-audit's cache needs it, but the conda package doesn't depend on it
+python = "3.13.*"  # pip-audit's dependencies don't run on newer Pythons yet
+
+[feature.audit.tasks]
+audit = "pip-audit"
+
 [environments]
 dev = ["dev"]
 test-py310 = ["dev", "py310"]
+audit = ["dev", "audit"]
 
 [feature.dev.tasks]
 test = "pytest tests/"

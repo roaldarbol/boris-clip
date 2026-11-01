@@ -22,6 +22,7 @@ python-build = ">=1.0"
 zensical = ">=0.0.23,<0.0.24"
 mkdocstrings = ">=1.0.3,<2"
 mkdocstrings-python = ">=2.0.2,<3"
+pymdown-extensions = ">=11.0.1,<12"  # zensical 0.0.23 breaks with 12
 
 # Pin the oldest supported Python so CI tests both ends of requires-python
 # (the dev environment resolves to the newest).

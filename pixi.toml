@@ -22,26 +22,16 @@ python-build = ">=1.0"
 zensical = ">=0.0.23,<0.0.24"
 mkdocstrings = ">=1.0.3,<2"
 mkdocstrings-python = ">=2.0.2,<3"
+pymdown-extensions = ">=11.0.1,<12"  # zensical 0.0.23 breaks with 12
 
 # Pin the oldest supported Python so CI tests both ends of requires-python
 # (the dev environment resolves to the newest).
 [feature.py310.dependencies]
 python = "3.10.*"
 
-# Security audit. The audit environment combines the other features so pip-audit
-# sees every locked package. See .github/workflows/audit.yml.
-[feature.audit.dependencies]
-pip-audit = ">=2.10"
-filelock = "*"  # pip-audit's cache needs it, but the conda package doesn't depend on it
-python = "3.13.*"  # pip-audit's dependencies don't run on newer Pythons yet
-
-[feature.audit.tasks]
-audit = "pip-audit"
-
 [environments]
 dev = ["dev"]
 test-py310 = ["dev", "py310"]
-audit = ["dev", "audit"]
 
 [feature.dev.tasks]
 test = "pytest tests/"

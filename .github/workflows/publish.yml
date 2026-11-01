@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "v*.*.*"
-    branches:
-      - main  # ensures this only runs when the tag is on main
 
 jobs:
   test:
